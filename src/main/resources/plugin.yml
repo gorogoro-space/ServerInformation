@@ -1,0 +1,7 @@
+name: ServerInformation
+version: 1.0
+api-version: 1.15
+description: ServerInformation
+author: kubotan
+softdepend: [Essentials]
+main: space.gorogoro.serverinformation.ServerInformation

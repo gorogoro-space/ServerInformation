@@ -36,8 +36,10 @@ public class ServerInformation extends JavaPlugin implements Listener {
       if(!configFile.exists()){
         saveDefaultConfig();
       }
+      int intervalSeconds = getConfig().getInt("interval-seconds");
 
       getServer().getPluginManager().registerEvents(this, this);
+
       getServer().getScheduler().runTaskTimer(this, new Runnable() {
         public void run() {
           int countChunks = 0;
@@ -47,8 +49,8 @@ public class ServerInformation extends JavaPlugin implements Listener {
             countChunks = 0;
             countEntities = 0;
             countTileEntities = 0;
-            countChunks += world.getLoadedChunks().length;
             for (Chunk c : world.getLoadedChunks()) {
+              countChunks++;
               countEntities += c.getEntities().length;
               countTileEntities += c.getTileEntities().length;
             }
@@ -62,7 +64,7 @@ public class ServerInformation extends JavaPlugin implements Listener {
           }
           Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tps");
         }
-      }, 0L, getConfig().getInt("interval-seconds") * 20L);
+      }, 0L, intervalSeconds * 20L);
     } catch (Exception e) {
       logStackTrace(e);
     }

@@ -1,7 +1,7 @@
 name: ServerInformation
-version: 1.0
+version: 1.1
 api-version: 1.15
-description: ServerInformation
+description: Outputs server information to the console log.
 author: kubotan
 softdepend: [Essentials]
 main: space.gorogoro.serverinformation.ServerInformation

@@ -5,7 +5,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,25 +41,14 @@ public class ServerInformation extends JavaPlugin implements Listener {
 
       getServer().getScheduler().runTaskTimer(this, new Runnable() {
         public void run() {
-          int countChunks = 0;
-          int countEntities = 0;
-          int countTileEntities = 0;
           for (World world : getServer().getWorlds()) {
-            countChunks = 0;
-            countEntities = 0;
-            countTileEntities = 0;
-            for (Chunk c : world.getLoadedChunks()) {
-              countChunks++;
-              countEntities += c.getEntities().length;
-              countTileEntities += c.getTileEntities().length;
-            }
-            Bukkit.getServer().getLogger().info( String.format(
-              "ServerInformation: %s %d %d %d"
-              , world.getName()
-              , countChunks
-              , countEntities
-              , countTileEntities
-              ));
+            Bukkit.getServer().getLogger().info(String.format(
+                    "ServerInformation: %s %d %d %d",
+                    world.getName(),
+                    world.getChunkCount(),
+                    world.getEntityCount(),
+                    world.getTileEntityCount()
+            ));
           }
           Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tps");
         }
@@ -72,7 +60,6 @@ public class ServerInformation extends JavaPlugin implements Listener {
 
   /**
    * Output stack trace to log file.
-   * @param Exception Exception
    */
   public void logStackTrace(Exception e){
       StringWriter sw = new StringWriter();

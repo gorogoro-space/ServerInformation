@@ -29,7 +29,6 @@
   - IntelliJ の「アーティファクトのビルド」はクラスファイルが入らないことがある。必ず Gradle でビルドする
 - バージョンは `gradle.properties` の `version` だけで管理する。`plugin.yml` の `version: '${version}'` は `processResources` でビルド時に置き換わる
 - パッケージ: `space.gorogoro.serverinformation`(**すべて小文字**。大文字が混ざると plugin.yml の main と一致せず起動しない)
-- ソースのライセンス表記(`@license LGPLv3`)と LICENSE ファイル(GPL-3.0)が食い違っている(Maven から Gradle に移したときからそのまま。直すのは頼まれたとき)
 - 動作確認はサーバーを再起動して行う。PlugManX での読み込みは権限やコマンドの登録が不完全になることがある
 
 ## 最重要の設計方針

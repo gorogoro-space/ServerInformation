@@ -11,7 +11,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /*
  * ServerInformation
- * @license    LGPLv3
+ * @license    GPLv3
  * @copyright  Copyright gorogoro.space 2021
  * @author     kubotan
  * @see        <a href="https://gorogoro.space">Gorogoro Server.</a>

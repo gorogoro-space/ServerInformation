@@ -6,7 +6,7 @@
 
 This plugin periodically outputs server information to the console log.
 
-ワールドごとのチャンク数・エンティティ数・タイルエンティティ数と TPS を、一定間隔でコンソールのログに出すプラグインです。
+ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数(統合版と Java 版の合計)、TPS を、一定間隔でコンソールのログに出すプラグインです。
 
 # Requirements
 - Paper 1.21.11 以降(1.21.11 未満のサーバーでは読み込まれません)
@@ -21,6 +21,10 @@ Please place the .jar file in the Paper plugins folder.
 - `interval-seconds` 秒ごとに、ワールドごとに次の形式でログを出します
   ```
   ServerInformation: <ワールド名> <チャンク数> <エンティティ数> <タイルエンティティ数>
+  ```
+- 続けて、オンラインのプレイヤー数(統合版と Java 版の合計)をログに出します
+  ```
+  ServerInformation: players <プレイヤー数>
   ```
 - 続けてコンソールから `tps` コマンドを実行し、TPS をログに出します
 

@@ -1,6 +1,6 @@
 # ServerInformation
 
-一定間隔で、ワールドごとのチャンク数・エンティティ数・タイルエンティティ数と TPS をコンソールのログに出す Paper 用プラグイン(Paper 1.21.11 以降・Java 21 必須)。
+一定間隔で、ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数、TPS をコンソールのログに出す Paper 用プラグイン(Paper 1.21.11 以降・Java 21 必須)。
 リポジトリ: https://github.com/gorogoro-space/ServerInformation (GPL-3.0)
 
 ## 作業の進め方(必ず守ること)
@@ -54,6 +54,7 @@
 - **起動時(`onEnable`)**: `config.yml` が無ければ jar 内のものを保存し、`interval-seconds`(既定 240)を読む
 - **定期タスク**: 起動直後から `interval-seconds` 秒ごとに、メインスレッドで次を行う
   - ワールドごとに `ServerInformation: <ワールド名> <チャンク数> <エンティティ数> <タイルエンティティ数>` をログに出す
+  - `ServerInformation: players <オンラインの人数>` をログに出す(`getOnlinePlayers().size()`。統合版と Java 版を区別しない合計で、Geyser/Floodgate 経由の統合版も含まれる)
   - コンソールから `tps` コマンドを実行する(`plugin.yml` の `softdepend: [Essentials]`)
 - コマンド・権限・イベントの処理は無い(`Listener` として登録しているが、ハンドラは無い)
 - 例外は `logStackTrace` でスタックトレースを警告ログに出す

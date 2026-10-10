@@ -50,6 +50,11 @@ public class ServerInformation extends JavaPlugin implements Listener {
                     world.getTileEntityCount()
             ));
           }
+          // オンラインの人数(統合版とJava版の合計。Geyser/Floodgate 経由の統合版も含まれる)
+          Bukkit.getServer().getLogger().info(String.format(
+                  "ServerInformation: players %d",
+                  getServer().getOnlinePlayers().size()
+          ));
           Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tps");
         }
       }, 0L, intervalSeconds * 20L);

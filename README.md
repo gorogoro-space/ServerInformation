@@ -6,7 +6,7 @@
 
 This plugin periodically outputs server information to the console log.
 
-ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数(統合版と Java 版の合計)、TPS を、一定間隔でコンソールのログに出すプラグインです。
+ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数(統合版と Java 版の合計)、TPS を、一定間隔でコンソールのログに出すプラグインです。TPS が下がったときは spark のプロファイラを自動で実行します。
 
 # Requirements
 - Paper 1.21.11 以降(1.21.11 未満のサーバーでは読み込まれません)
@@ -27,10 +27,27 @@ Please place the .jar file in the Paper plugins folder.
   ServerInformation: players <プレイヤー数>
   ```
 - 続けてコンソールから `tps` コマンドを実行し、TPS をログに出します
+- TPS(1 分平均)がしきい値以下になると、コンソールから次のコマンドを実行して [spark](https://spark.lucko.me/) のプロファイラを開始します(自動プロファイル)
+  ```
+  spark profiler start --timeout <計測秒数> --save-to-file --only-ticks-over <ms>
+  ```
+  - 結果は spark が `plugins/spark/` にファイルとして保存します(アップロードはしません)
+  - 停止は spark が `--timeout` で自動的に行います。このプラグインからは stop を送らないので、手動で実行中の計測を止めることはありません(手動の計測中は、spark が自動プロファイルの開始を断ります)
+  - 開始するときに `ServerInformation: TPS <TPS> <= <しきい値>, <実行したコマンド>` をログに出します
+  - 計測が終わってからクールダウンの時間が過ぎるまでは、再実行しません
 
 # Config
 `plugins/ServerInformation/config.yml`
 - `interval-seconds` — ログを出す間隔(秒)。既定は 240
+- `auto-profiler.enabled` — 自動プロファイルを使うか。既定は `true`
+- `auto-profiler.tps-threshold` — この TPS(1 分平均)以下で開始する。既定は 19.0
+- `auto-profiler.check-interval-seconds` — TPS を確認する間隔(秒)。既定は 20
+- `auto-profiler.duration-seconds` — 計測時間(秒、spark の `--timeout`)。既定は 300
+- `auto-profiler.only-ticks-over-ms` — この時間(ms)より長くかかった tick だけを記録する(spark の `--only-ticks-over`)。既定は 50
+- `auto-profiler.cooldown-minutes` — 計測が終わってから次に開始できるまでの時間(分)。既定は 30
+- `auto-profiler.startup-delay-minutes` — 起動直後に TPS を確認しない時間(分)。既定は 5
+
+config.yml が既にある場合、足りない項目は起動時に既定値で追記されます。
 
 # Disclaimer
 Do not assume any responsibility by use. Please use it at your own risk.

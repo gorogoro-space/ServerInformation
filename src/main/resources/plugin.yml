@@ -3,5 +3,5 @@ version: '${version}'
 api-version: '1.21.11'
 description: Outputs server information to the console log.
 author: kubotan
-softdepend: [Essentials]
+softdepend: [Essentials, spark]
 main: space.gorogoro.serverinformation.ServerInformation

@@ -1,6 +1,6 @@
 # ServerInformation
 
-一定間隔で、ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数、TPS をコンソールのログに出す Paper 用プラグイン(Paper 1.21.11 以降・Java 21 必須)。
+一定間隔で、ワールドごとのチャンク数・エンティティ数・タイルエンティティ数、オンラインのプレイヤー数、TPS をコンソールのログに出し、TPS が下がったら spark のプロファイラを自動で実行する Paper 用プラグイン(Paper 1.21.11 以降・Java 21 必須)。
 リポジトリ: https://github.com/gorogoro-space/ServerInformation (GPL-3.0)
 
 ## 作業の進め方(必ず守ること)
@@ -51,11 +51,16 @@
 
 (現在の実装の動作。仕様を変えたらここを更新する)
 
-- **起動時(`onEnable`)**: `config.yml` が無ければ jar 内のものを保存し、`interval-seconds`(既定 240)を読む
+- **起動時(`onEnable`)**: `config.yml` が無ければ jar 内のものを保存する。既にあって足りない項目があれば、`copyDefaults(true)` と `saveConfig()` で jar 内の既定値を追記する(足りない項目が無ければ書き込まない)。`interval-seconds`(既定 240)を読む
 - **定期タスク**: 起動直後から `interval-seconds` 秒ごとに、メインスレッドで次を行う
   - ワールドごとに `ServerInformation: <ワールド名> <チャンク数> <エンティティ数> <タイルエンティティ数>` をログに出す
   - `ServerInformation: players <オンラインの人数>` をログに出す(`getOnlinePlayers().size()`。統合版と Java 版を区別しない合計で、Geyser/Floodgate 経由の統合版も含まれる)
-  - コンソールから `tps` コマンドを実行する(`plugin.yml` の `softdepend: [Essentials]`)
+  - コンソールから `tps` コマンドを実行する(`plugin.yml` の `softdepend: [Essentials, spark]`)
+- **自動プロファイル(`startAutoProfiler`)**: `auto-profiler.enabled` が true のとき、起動から `startup-delay-minutes` 分後(既定 5)から `check-interval-seconds` 秒ごと(既定 20)に、メインスレッドで `Bukkit.getTPS()[0]`(1 分平均)を確認する
+  - `tps-threshold`(既定 19.0)以下なら、コンソールから `spark profiler start --timeout <duration-seconds> --save-to-file --only-ticks-over <only-ticks-over-ms>`(既定 300 秒・50ms)を実行し、`ServerInformation: TPS <TPS> <= <しきい値>, <コマンド>` をログに出す
+  - stop は送らない。停止は spark の `--timeout` に任せる(手動で実行中の計測を止めないため。手動の計測中は spark が開始を断る)。`--timeout` と `--save-to-file` を併用するとファイル保存になる(アップロードされない)ことを実サーバーで確認済み
+  - 実行したら「計測時間 + `cooldown-minutes`(既定 30)」が過ぎるまで再実行しない(spark が開始を断った場合も同じ)
+  - 結果のファイルは spark が `plugins/spark/` に書く(このプラグイン自身は書かない)
 - コマンド・権限・イベントの処理は無い(`Listener` として登録しているが、ハンドラは無い)
 - 例外は `logStackTrace` でスタックトレースを警告ログに出す
 
@@ -68,5 +73,5 @@
 
 - `src/main/java/space/gorogoro/serverinformation/ServerInformation.java` — メインクラス。設定の読み込みと定期タスクをすべて持つ
 - `src/main/resources/plugin.yml` — プラグイン定義
-- `src/main/resources/config.yml` — 出力間隔(`interval-seconds`)
+- `src/main/resources/config.yml` — 出力間隔(`interval-seconds`)と自動プロファイルの設定(`auto-profiler.*`)
 - `build.gradle.kts` / `settings.gradle.kts` / `gradle.properties` — Gradle の設定(バージョンは `gradle.properties`)

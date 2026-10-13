@@ -1,1 +1,9 @@
 interval-seconds: 240
+auto-profiler:
+  enabled: true
+  tps-threshold: 19.0
+  check-interval-seconds: 20
+  duration-seconds: 300
+  only-ticks-over-ms: 50
+  cooldown-minutes: 30
+  startup-delay-minutes: 5

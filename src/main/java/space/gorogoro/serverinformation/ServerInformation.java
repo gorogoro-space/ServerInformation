@@ -18,6 +18,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public class ServerInformation extends JavaPlugin implements Listener {
 
+  // 次に自動プロファイルを開始してよい時刻(System.currentTimeMillis())
+  private long nextProfileAllowedMillis = 0L;
+
   /**
    * JavaPlugin method onEnable.
    */
@@ -34,6 +37,11 @@ public class ServerInformation extends JavaPlugin implements Listener {
       File configFile = new File(getDataFolder(), "config.yml");
       if(!configFile.exists()){
         saveDefaultConfig();
+      }
+      // 既存の config.yml に足りない項目があれば、jar 内の既定値を追記する
+      if (!getConfig().getKeys(true).containsAll(getConfig().getDefaults().getKeys(true))) {
+        getConfig().options().copyDefaults(true);
+        saveConfig();
       }
       int intervalSeconds = getConfig().getInt("interval-seconds");
 
@@ -58,9 +66,49 @@ public class ServerInformation extends JavaPlugin implements Listener {
           Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tps");
         }
       }, 0L, intervalSeconds * 20L);
+
+      startAutoProfiler();
     } catch (Exception e) {
       logStackTrace(e);
     }
+  }
+
+  /**
+   * TPS(1 分平均)がしきい値以下になったら spark profiler を開始する監視タスクを登録する。
+   * 停止は spark の --timeout に任せ、このプラグインからは stop を送らない(手動の計測を止めないため)。
+   */
+  private void startAutoProfiler() {
+    if (!getConfig().getBoolean("auto-profiler.enabled")) {
+      return;
+    }
+    double tpsThreshold = getConfig().getDouble("auto-profiler.tps-threshold");
+    int checkIntervalSeconds = getConfig().getInt("auto-profiler.check-interval-seconds");
+    int durationSeconds = getConfig().getInt("auto-profiler.duration-seconds");
+    int onlyTicksOverMs = getConfig().getInt("auto-profiler.only-ticks-over-ms");
+    int cooldownMinutes = getConfig().getInt("auto-profiler.cooldown-minutes");
+    int startupDelayMinutes = getConfig().getInt("auto-profiler.startup-delay-minutes");
+    String command = String.format(
+            "spark profiler start --timeout %d --save-to-file --only-ticks-over %d",
+            durationSeconds, onlyTicksOverMs
+    );
+
+    getServer().getScheduler().runTaskTimer(this, () -> {
+      long now = System.currentTimeMillis();
+      if (now < nextProfileAllowedMillis) {
+        return;
+      }
+      double tps = Bukkit.getTPS()[0];
+      if (tps > tpsThreshold) {
+        return;
+      }
+      // 計測が終わってからクールダウンするまでは再実行しない(spark が開始を断った場合も同じ)
+      nextProfileAllowedMillis = now + (durationSeconds + cooldownMinutes * 60L) * 1000L;
+      Bukkit.getServer().getLogger().info(String.format(
+              "ServerInformation: TPS %.2f <= %.2f, %s",
+              tps, tpsThreshold, command
+      ));
+      Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    }, startupDelayMinutes * 60L * 20L, checkIntervalSeconds * 20L);
   }
 
   /**

@@ -29,7 +29,7 @@
   - IntelliJ の「アーティファクトのビルド」はクラスファイルが入らないことがある。必ず Gradle でビルドする
 - バージョンは `gradle.properties` の `version` だけで管理する。`plugin.yml` の `version: '${version}'` は `processResources` でビルド時に置き換わる
 - パッケージ: `space.gorogoro.serverinformation`(**すべて小文字**。大文字が混ざると plugin.yml の main と一致せず起動しない)
-- 動作確認はサーバーを再起動して行う。PlugManX での読み込みは権限やコマンドの登録が不完全になることがある
+- 動作確認は、サーバーの再起動でも PlugManX の `/plugman reload ServerInformation` でもよい(コマンドや権限が無いので、PlugManX で登録が不完全になる問題が起きない。定期タスクは無効化時に Bukkit が止める)。jar を差し替えるときは、どちらの手順でも先に古い jar を消す(同じ名前のプラグインが 2 つあると、どちらが読まれるかわからない)
 
 ## 最重要の設計方針
 

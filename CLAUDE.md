@@ -61,6 +61,7 @@
   - stop は送らない。停止は spark の `--timeout` に任せる(手動で実行中の計測を止めないため。手動の計測中は spark が開始を断る)。`--timeout` と `--save-to-file` を併用するとファイル保存になる(アップロードされない)ことを実サーバーで確認済み
   - 実行したら「計測時間 + `cooldown-minutes`(既定 30)」が過ぎるまで再実行しない(spark が開始を断った場合も同じ)
   - 結果のファイルは spark が `plugins/spark/` に書く(このプラグイン自身は書かない)
+  - `auto-profiler.discord-webhook-url`(既定 `""`)が `https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まるときは、spark を実行した直後に Discord へ通知する(TPS・しきい値・計測時間・ms を入れた決まった文。メンションは入れないので `allowed_mentions` は付けない)。Java 標準の `HttpClient.sendAsync` で送り、メインスレッドを止めない。失敗はステータスか例外を警告ログに出すだけで、再試行しない。URL はログに出さない。空なら通知しない。それ以外の URL は起動時に警告を出して通知しない。無効化時に `shutdownNow()` で送信中のものを打ち切る
 - コマンド・権限・イベントの処理は無い(`Listener` として登録しているが、ハンドラは無い)
 - 例外は `logStackTrace` でスタックトレースを警告ログに出す
 

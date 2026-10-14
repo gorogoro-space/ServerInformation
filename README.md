@@ -35,6 +35,10 @@ Please place the .jar file in the Paper plugins folder.
   - 停止は spark が `--timeout` で自動的に行います。このプラグインからは stop を送らないので、手動で実行中の計測を止めることはありません(手動の計測中は、spark が自動プロファイルの開始を断ります)
   - 開始するときに `ServerInformation: TPS <TPS> <= <しきい値>, <実行したコマンド>` をログに出します
   - 計測が終わってからクールダウンの時間が過ぎるまでは、再実行しません
+  - `auto-profiler.discord-webhook-url` を設定すると、開始したときに Discord へ次のような通知を送ります(メンションはしません)
+    ```
+    ⚠️ TPS 18.42 <= 19.00 のため spark のプロファイラを開始しました(300 秒、50ms 超の tick のみ)。結果は plugins/spark/ に保存されます。
+    ```
 
 # Config
 `plugins/ServerInformation/config.yml`
@@ -46,6 +50,7 @@ Please place the .jar file in the Paper plugins folder.
 - `auto-profiler.only-ticks-over-ms` — この時間(ms)より長くかかった tick だけを記録する(spark の `--only-ticks-over`)。既定は 50
 - `auto-profiler.cooldown-minutes` — 計測が終わってから次に開始できるまでの時間(分)。既定は 30
 - `auto-profiler.startup-delay-minutes` — 起動直後に TPS を確認しない時間(分)。既定は 5
+- `auto-profiler.discord-webhook-url` — 自動プロファイルを開始したときに通知する Discord の webhook の URL。空なら通知しない。既定は `""`。`https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まる URL だけ有効で、それ以外は起動時に警告を出して通知しません
 
 config.yml が既にある場合、足りない項目は起動時に既定値で追記されます。
 

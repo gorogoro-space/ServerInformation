@@ -7,3 +7,4 @@ auto-profiler:
   only-ticks-over-ms: 50
   cooldown-minutes: 30
   startup-delay-minutes: 5
+  discord-webhook-url: ""

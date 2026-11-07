@@ -57,11 +57,13 @@
   - `ServerInformation: players <オンラインの人数>` をログに出す(`getOnlinePlayers().size()`。統合版と Java 版を区別しない合計で、Geyser/Floodgate 経由の統合版も含まれる)
   - コンソールから `tps` コマンドを実行する(`plugin.yml` の `softdepend: [Essentials, spark]`)
 - **自動プロファイル(`startAutoProfiler`)**: `auto-profiler.enabled` が true のとき、起動から `startup-delay-minutes` 分後(既定 5)から `check-interval-seconds` 秒ごと(既定 20)に、メインスレッドで `Bukkit.getTPS()[0]`(1 分平均)を確認する
-  - `tps-threshold`(既定 19.0)以下なら、コンソールから `spark profiler start --timeout <duration-seconds> --save-to-file --only-ticks-over <only-ticks-over-ms>`(既定 300 秒・50ms)を実行し、`ServerInformation: TPS <TPS> <= <しきい値>, <コマンド>` をログに出す
-  - stop は送らない。停止は spark の `--timeout` に任せる(手動で実行中の計測を止めないため。手動の計測中は spark が開始を断る)。`--timeout` と `--save-to-file` を併用するとファイル保存になる(アップロードされない)ことを実サーバーで確認済み
-  - 実行したら「計測時間 + `cooldown-minutes`(既定 30)」が過ぎるまで再実行しない(spark が開始を断った場合も同じ)
+  - `tps-threshold`(既定 19.0)以下なら、コンソールから `spark profiler stop --save-to-file` を実行し、`ServerInformation: TPS <TPS> <= <しきい値>, <コマンド>` をログに出す。spark のバックグラウンドの記録(10ms 間隔・全 tick・直近 1 時間、前回の保存より後の分)が保存され、記録は自動で再開する。低下する前の様子を残すためで、`start` はこの記録を破棄し、`--timeout` で終わっても再開しないので使わない
+  - 手動で実行中の計測があると、その計測を止めて保存する(2026-11-07 にユーザーが承認。それまでは手動の計測を止めないよう stop を送らなかった)
+  - 60 秒後(`SAVE_CHECK_SECONDS`)に、非同期で `plugins/spark/` の `profile-*.sparkprofile` に検知より後のファイルがあるかを確認する。あればファイル名をログと Discord に出す
+  - ファイルが無ければバックグラウンドの記録が止まっていたと判断し(手動の `--timeout` 付きの計測や `cancel` のあと、spark の設定で無効など)、`spark profiler start --save-to-file --only-ticks-over <only-ticks-over-ms>` で検知後の計測を始める。`duration-seconds`(既定 300)後にこのプラグインが `stop --save-to-file` を送り、保存してバックグラウンドの記録を再開させる。途中でサーバーを止めると、この計測は保存されない
+  - 検知から `cooldown-minutes`(既定 5)が過ぎるまで再実行しない(短くしても確認までの 60 秒は再実行しない)。検知後の計測を始めたときは「計測時間 + `cooldown-minutes`」。既にある config.yml の値は書き換わらない
   - 結果のファイルは spark が `plugins/spark/` に書く(このプラグイン自身は書かない)
-  - `auto-profiler.discord-webhook-url`(既定 `""`)が `https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まるときは、spark を実行した直後に Discord へ通知する(TPS・しきい値・計測時間・ms を入れた決まった文。メンションは入れないので `allowed_mentions` は付けない)。Java 標準の `HttpClient.sendAsync` で送り、メインスレッドを止めない。失敗はステータスか例外を警告ログに出すだけで、再試行しない。URL はログに出さない。空なら通知しない。それ以外の URL は起動時に警告を出して通知しない。無効化時に `shutdownNow()` で送信中のものを打ち切る
+  - `auto-profiler.discord-webhook-url`(既定 `""`)が `https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まるときは、結果を Discord へ通知する(保存できたときは TPS・しきい値・ファイル名、検知後の計測を始めたときは TPS・しきい値・計測時間・ms を入れた決まった文。メンションは入れないので `allowed_mentions` は付けない)。Java 標準の `HttpClient.sendAsync` で送り、メインスレッドを止めない。失敗はステータスか例外を警告ログに出すだけで、再試行しない。URL はログに出さない。空なら通知しない。それ以外の URL は起動時に警告を出して通知しない。無効化時に `shutdownNow()` で送信中のものを打ち切る
 - コマンド・権限・イベントの処理は無い(`Listener` として登録しているが、ハンドラは無い)
 - 例外は `logStackTrace` でスタックトレースを警告ログに出す
 

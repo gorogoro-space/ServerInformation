@@ -27,30 +27,35 @@ Please place the .jar file in the Paper plugins folder.
   ServerInformation: players <プレイヤー数>
   ```
 - 続けてコンソールから `tps` コマンドを実行し、TPS をログに出します
-- TPS(1 分平均)がしきい値以下になると、コンソールから次のコマンドを実行して [spark](https://spark.lucko.me/) のプロファイラを開始します(自動プロファイル)
+- TPS(1 分平均)がしきい値以下になると、コンソールから次のコマンドを実行して、[spark](https://spark.lucko.me/) のバックグラウンドの記録を保存します(自動プロファイル)。低下する前の様子も残ります
   ```
-  spark profiler start --timeout <計測秒数> --save-to-file --only-ticks-over <ms>
+  spark profiler stop --save-to-file
   ```
-  - 結果は spark が `plugins/spark/` にファイルとして保存します(アップロードはしません)
-  - 停止は spark が `--timeout` で自動的に行います。このプラグインからは stop を送らないので、手動で実行中の計測を止めることはありません(手動の計測中は、spark が自動プロファイルの開始を断ります)
-  - 開始するときに `ServerInformation: TPS <TPS> <= <しきい値>, <実行したコマンド>` をログに出します
-  - 計測が終わってからクールダウンの時間が過ぎるまでは、再実行しません
-  - `auto-profiler.discord-webhook-url` を設定すると、開始したときに Discord へ次のような通知を送ります(メンションはしません)
+  - 結果は spark が `plugins/spark/` にファイルとして保存します(アップロードはしません)。バックグラウンドの記録は最大で直近 1 時間分(前回の保存より後の分)で、すべての tick が入ります。保存のあと、記録は自動で再開します
+  - **手動で実行中の計測があると、その計測を止めて保存します**
+  - 実行するときに `ServerInformation: TPS <TPS> <= <しきい値>, <実行したコマンド>` をログに出します
+  - 60 秒後に `plugins/spark/` を確認します。新しいファイルが無ければ、バックグラウンドの記録が止まっていたと判断し、次のコマンドで検知後の計測を始めます。計測時間が過ぎたら上の `stop` を送り、結果を保存してバックグラウンドの記録を再開します(途中でサーバーを止めると、この計測は保存されません)
     ```
-    ⚠️ TPS 18.42 <= 19.00 のため spark のプロファイラを開始しました(300 秒、50ms 超の tick のみ)。結果は plugins/spark/ に保存されます。
+    spark profiler start --save-to-file --only-ticks-over <ms>
+    ```
+  - 検知からクールダウンの時間が過ぎるまでは、再実行しません。検知後の計測を始めたときは、計測が終わってからクールダウンの時間が過ぎるまでです
+  - `auto-profiler.discord-webhook-url` を設定すると、結果を Discord へ次のように通知します(メンションはしません)
+    ```
+    ⚠️ TPS 18.42 <= 19.00 のため spark の記録を保存しました(最大で直近 1 時間分)。ファイル: plugins/spark/profile-2026-01-01_12.00.00.sparkprofile
+    ⚠️ TPS 18.42 <= 19.00 ですが、バックグラウンドの記録がなかったため spark のプロファイラを開始しました(300 秒、50ms 超の tick のみ)。結果は plugins/spark/ に保存されます。
     ```
 
 # Config
 `plugins/ServerInformation/config.yml`
 - `interval-seconds` — ログを出す間隔(秒)。既定は 240
 - `auto-profiler.enabled` — 自動プロファイルを使うか。既定は `true`
-- `auto-profiler.tps-threshold` — この TPS(1 分平均)以下で開始する。既定は 19.0
+- `auto-profiler.tps-threshold` — この TPS(1 分平均)以下で実行する。既定は 19.0
 - `auto-profiler.check-interval-seconds` — TPS を確認する間隔(秒)。既定は 20
-- `auto-profiler.duration-seconds` — 計測時間(秒、spark の `--timeout`)。既定は 300
-- `auto-profiler.only-ticks-over-ms` — この時間(ms)より長くかかった tick だけを記録する(spark の `--only-ticks-over`)。既定は 50
-- `auto-profiler.cooldown-minutes` — 計測が終わってから次に開始できるまでの時間(分)。既定は 30
+- `auto-profiler.duration-seconds` — 検知後の計測の時間(秒)。バックグラウンドの記録を保存できなかったときだけ使う。既定は 300
+- `auto-profiler.only-ticks-over-ms` — 検知後の計測で、この時間(ms)より長くかかった tick だけを記録する(spark の `--only-ticks-over`)。既定は 50
+- `auto-profiler.cooldown-minutes` — 次に実行できるまでの時間(分)。短くしても、保存を確認する 60 秒の間は再実行しない。既定は 5(1.5 までは 30。既にある config.yml の値は書き換わりません)
 - `auto-profiler.startup-delay-minutes` — 起動直後に TPS を確認しない時間(分)。既定は 5
-- `auto-profiler.discord-webhook-url` — 自動プロファイルを開始したときに通知する Discord の webhook の URL。空なら通知しない。既定は `""`。`https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まる URL だけ有効で、それ以外は起動時に警告を出して通知しません
+- `auto-profiler.discord-webhook-url` — 自動プロファイルの結果を通知する Discord の webhook の URL。空なら通知しない。既定は `""`。`https://discord.com/api/webhooks/` か `https://discordapp.com/api/webhooks/` で始まる URL だけ有効で、それ以外は起動時に警告を出して通知しません
 
 config.yml が既にある場合、足りない項目は起動時に既定値で追記されます。
 

@@ -5,6 +5,6 @@ auto-profiler:
   check-interval-seconds: 20
   duration-seconds: 300
   only-ticks-over-ms: 50
-  cooldown-minutes: 30
+  cooldown-minutes: 5
   startup-delay-minutes: 5
   discord-webhook-url: ""

@@ -23,6 +23,11 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 public class ServerInformation extends JavaPlugin implements Listener {
 
+  // spark に記録の保存を指示するコマンド
+  private static final String SAVE_COMMAND = "spark profiler stop --save-to-file";
+  // 保存を指示してから、ファイルができたかを確認するまでの秒数
+  private static final int SAVE_CHECK_SECONDS = 60;
+
   // 次に自動プロファイルを開始してよい時刻(System.currentTimeMillis())
   private long nextProfileAllowedMillis = 0L;
 
@@ -83,8 +88,9 @@ public class ServerInformation extends JavaPlugin implements Listener {
   }
 
   /**
-   * TPS(1 分平均)がしきい値以下になったら spark profiler を開始する監視タスクを登録する。
-   * 停止は spark の --timeout に任せ、このプラグインからは stop を送らない(手動の計測を止めないため)。
+   * TPS(1 分平均)がしきい値以下になったら、spark のバックグラウンドの記録を保存する監視タスクを登録する。
+   * spark の stop は記録を保存したあと、バックグラウンドの記録を自動で再開する。
+   * 手動の計測中は、その計測を止めて保存することになる(2026-11-07 にユーザーが承認)。
    */
   private void startAutoProfiler() {
     if (!getConfig().getBoolean("auto-profiler.enabled")) {
@@ -96,10 +102,6 @@ public class ServerInformation extends JavaPlugin implements Listener {
     int onlyTicksOverMs = getConfig().getInt("auto-profiler.only-ticks-over-ms");
     int cooldownMinutes = getConfig().getInt("auto-profiler.cooldown-minutes");
     int startupDelayMinutes = getConfig().getInt("auto-profiler.startup-delay-minutes");
-    String command = String.format(
-            "spark profiler start --timeout %d --save-to-file --only-ticks-over %d",
-            durationSeconds, onlyTicksOverMs
-    );
     setupDiscordWebhook();
 
     getServer().getScheduler().runTaskTimer(this, () -> {
@@ -111,18 +113,75 @@ public class ServerInformation extends JavaPlugin implements Listener {
       if (tps > tpsThreshold) {
         return;
       }
-      // 計測が終わってからクールダウンするまでは再実行しない(spark が開始を断った場合も同じ)
-      nextProfileAllowedMillis = now + (durationSeconds + cooldownMinutes * 60L) * 1000L;
+      // 保存を確認するまでの間は、cooldown-minutes が短くても再実行しない
+      long cooldownSeconds = Math.max(cooldownMinutes * 60L, SAVE_CHECK_SECONDS);
+      nextProfileAllowedMillis = now + cooldownSeconds * 1000L;
       Bukkit.getServer().getLogger().info(String.format(
               "ServerInformation: TPS %.2f <= %.2f, %s",
-              tps, tpsThreshold, command
+              tps, tpsThreshold, SAVE_COMMAND
       ));
-      Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-      notifyDiscord(String.format(
-              "⚠️ TPS %.2f <= %.2f のため spark のプロファイラを開始しました(%d 秒、%dms 超の tick のみ)。結果は plugins/spark/ に保存されます。",
-              tps, tpsThreshold, durationSeconds, onlyTicksOverMs
-      ));
+      Bukkit.dispatchCommand(Bukkit.getConsoleSender(), SAVE_COMMAND);
+
+      // spark の保存は非同期なので、少し待ってからファイルを確認する(ファイルの確認はメインスレッドで行わない)
+      getServer().getScheduler().runTaskLaterAsynchronously(this, () -> {
+        String savedFile = findProfileSavedSince(now);
+        if (!isEnabled()) {
+          return;
+        }
+        getServer().getScheduler().runTask(this, () -> {
+          if (savedFile != null) {
+            Bukkit.getServer().getLogger().info("ServerInformation: spark profile saved: " + savedFile);
+            notifyDiscord(String.format(
+                    "⚠️ TPS %.2f <= %.2f のため spark の記録を保存しました(最大で直近 1 時間分)。ファイル: plugins/spark/%s",
+                    tps, tpsThreshold, savedFile
+            ));
+          } else {
+            startTimedProfile(tps, tpsThreshold, durationSeconds, onlyTicksOverMs, cooldownMinutes);
+          }
+        });
+      }, SAVE_CHECK_SECONDS * 20L);
     }, startupDelayMinutes * 60L * 20L, checkIntervalSeconds * 20L);
+  }
+
+  /**
+   * バックグラウンドの記録がなくて保存できなかったときに、検知したあとの計測を行う。
+   * --timeout で終わるとバックグラウンドの記録が再開しないので、時間がたったらこのプラグインから stop を送る。
+   */
+  private void startTimedProfile(double tps, double tpsThreshold, int durationSeconds, int onlyTicksOverMs, int cooldownMinutes) {
+    String command = String.format("spark profiler start --save-to-file --only-ticks-over %d", onlyTicksOverMs);
+    // 計測が終わってからクールダウンするまでは再実行しない
+    nextProfileAllowedMillis = System.currentTimeMillis() + (durationSeconds + cooldownMinutes * 60L) * 1000L;
+    Bukkit.getServer().getLogger().info("ServerInformation: no spark profile was saved, " + command);
+    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    notifyDiscord(String.format(
+            "⚠️ TPS %.2f <= %.2f ですが、バックグラウンドの記録がなかったため spark のプロファイラを開始しました(%d 秒、%dms 超の tick のみ)。結果は plugins/spark/ に保存されます。",
+            tps, tpsThreshold, durationSeconds, onlyTicksOverMs
+    ));
+    getServer().getScheduler().runTaskLater(this, () -> {
+      Bukkit.getServer().getLogger().info("ServerInformation: " + SAVE_COMMAND);
+      Bukkit.dispatchCommand(Bukkit.getConsoleSender(), SAVE_COMMAND);
+    }, durationSeconds * 20L);
+  }
+
+  /**
+   * 指定した時刻より後に spark が plugins/spark/ に保存したファイルのうち、最新のものの名前を返す。無ければ null。
+   */
+  private String findProfileSavedSince(long sinceMillis) {
+    File sparkFolder = new File(getDataFolder().getParentFile(), "spark");
+    File[] files = sparkFolder.listFiles((dir, name) -> name.startsWith("profile-") && name.endsWith(".sparkprofile"));
+    if (files == null) {
+      return null;
+    }
+    String newestName = null;
+    long newestModified = sinceMillis;
+    for (File file : files) {
+      long modified = file.lastModified();
+      if (modified >= newestModified) {
+        newestModified = modified;
+        newestName = file.getName();
+      }
+    }
+    return newestName;
   }
 
   /**
@@ -153,7 +212,7 @@ public class ServerInformation extends JavaPlugin implements Listener {
 
   /**
    * Discord の webhook にメッセージを送る。送信は非同期で行い、メインスレッドを止めない。
-   * 本文は決まった文と数値だけなので、JSON のエスケープやメンションの抑止はしていない。
+   * 本文は決まった文と数値、spark が付けたファイル名だけなので、JSON のエスケープやメンションの抑止はしていない。
    */
   private void notifyDiscord(String content) {
     if (discordClient == null) {
